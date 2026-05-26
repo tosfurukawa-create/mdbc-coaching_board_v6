@@ -1,0 +1,38 @@
+{
+  "name": "三輪ドッジボールクラブ デジタル作戦ボード",
+  "short_name": "作戦ボード",
+  "description": "ドッジボール戦術の作戦ボードアプリ（M.D.B.C.）",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "logo.jpg",
+      "sizes": "any",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ],
+  "categories": ["sports", "education"],
+  "shortcuts": [
+    {
+      "name": "新規作戦",
+      "url": "./?action=new",
+      "description": "新しい作戦ボードを開始"
+    }
+  ]
+}
