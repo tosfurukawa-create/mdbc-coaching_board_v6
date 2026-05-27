@@ -475,8 +475,8 @@ function initCanvas() {
   // 選手がほぼ縦に接触するレイアウト
   // STEP = 2R + 2（直径＋2px隙間）、列を縦中央揃え
   R    = Math.max(8, Math.min(Math.floor(innerH / 22), 22));
-  // 選手だけ直径を 1px 小さく描画（ボールはRのまま）。最小サイズは保持
-  PLAYER_R = Math.max(7, R - 0.5);
+  // 選手だけ R の 90%（10%縮小）で描画。ボールは R のまま。最小サイズは保持
+  PLAYER_R = Math.max(7, R * 0.9);
   // STEP は選手中心間距離。円周同士がぎりぎり接する＝中心間=直径(2R)
   STEP = 2 * R;
   MRGN = Math.max(R + 2, (innerH - 9 * STEP) / 2);
