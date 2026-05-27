@@ -116,6 +116,62 @@ canvas {
   letter-spacing:0.05em;
 }
 
+/* ── ドロップダウン（操作・描画・ファイル等） ── */
+.dropdown {
+  position:relative; display:inline-block;
+}
+.dropdown-trigger {
+  /* button styling 継承 */
+}
+.dropdown-menu {
+  display:none;
+  position:absolute;
+  top:calc(100% + 4px); left:50%;
+  transform:translateX(-50%);
+  background:rgba(20,20,30,0.96);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,0.30);
+  border-radius:8px;
+  padding:4px;
+  z-index:120;
+  min-width:140px;
+  flex-direction:column;
+  gap:2px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.5);
+}
+[data-theme="light"] .dropdown-menu {
+  background:rgba(255,255,255,0.97);
+  border-color:rgba(50,80,140,0.40);
+  box-shadow:0 6px 20px rgba(0,0,0,0.20);
+}
+.dropdown-menu.show {
+  display:flex !important;
+}
+.dropdown-menu button {
+  text-align:left;
+  width:100%;
+  padding:6px 10px;
+  font-size:12px;
+  border-radius:5px;
+  white-space:nowrap;
+  border:1px solid transparent;
+  background:transparent;
+  box-shadow:none;
+}
+.dropdown-menu button:hover {
+  background:rgba(255,255,255,0.15);
+  transform:none;
+}
+[data-theme="light"] .dropdown-menu button:hover {
+  background:rgba(0,0,0,0.08);
+}
+.dropdown-menu button.active {
+  background:rgba(25,118,210,0.85);
+  border-color:#90caf9;
+  color:#fff;
+}
+
 /* ── パスカウント ── */
 #passCountBox {
   position:absolute; bottom:8px; left:8px;
@@ -243,38 +299,47 @@ button:disabled {
   <div id="overlayUI">
     <div id="overlayTitle">三輪ドッジボールクラブ デジタル作戦ボード</div>
     <div class="controls-group">
-      <!-- 操作モード -->
-      <div class="btn-group" data-label="操作">
-        <button id="btnMove" class="active" onclick="setMode('move')">🖐 1人</button>
-        <button id="btnGroupMove" onclick="setMode('groupMove')">👥 グループ</button>
-        <button id="btnRotate" onclick="setMode('rotate')">🔄 回転</button>
-        <button id="btnToggleGroup" onclick="setMode('toggleGroup')">🔗 切替</button>
-        <button id="btnEditName" onclick="setMode('editName')">🏷 名前</button>
+      <!-- 操作モード（ドロップダウン） -->
+      <div class="dropdown">
+        <button class="dropdown-trigger" id="ddOperationLabel" onclick="toggleDropdown(this)">🖐 操作 ▼</button>
+        <div class="dropdown-menu">
+          <button id="btnMove" class="active" onclick="setMode('move');closeAllDropdowns();">🖐 1人</button>
+          <button id="btnGroupMove" onclick="setMode('groupMove');closeAllDropdowns();">👥 グループ</button>
+          <button id="btnRotate" onclick="setMode('rotate');closeAllDropdowns();">🔄 回転</button>
+          <button id="btnToggleGroup" onclick="setMode('toggleGroup');closeAllDropdowns();">🔗 切替</button>
+          <button id="btnEditName" onclick="setMode('editName');closeAllDropdowns();">🏷 名前</button>
+        </div>
       </div>
-      <!-- 描画 -->
-      <div class="btn-group" data-label="描画">
-        <button id="btnDraw" onclick="setMode('draw')">✏️ ペン</button>
-        <button id="btnErase" onclick="setMode('erase')">🧽 消しゴム</button>
-        <button onclick="clearDrawLines()">🧹 線消去</button>
-        <button id="btnTrail" class="active" onclick="toggleTrail()">🛤 軌道</button>
+      <!-- 描画（ドロップダウン） -->
+      <div class="dropdown">
+        <button class="dropdown-trigger" onclick="toggleDropdown(this)">✏️ 描画 ▼</button>
+        <div class="dropdown-menu">
+          <button id="btnDraw" onclick="setMode('draw');closeAllDropdowns();">✏️ ペン</button>
+          <button id="btnErase" onclick="setMode('erase');closeAllDropdowns();">🧽 消しゴム</button>
+          <button onclick="clearDrawLines();closeAllDropdowns();">🧹 線消去</button>
+          <button id="btnTrail" onclick="toggleTrail();">🛤 軌道OFF</button>
+        </div>
       </div>
-      <!-- 履歴 -->
+      <!-- 履歴（常時表示） -->
       <div class="btn-group" data-label="履歴">
         <button id="btnUndo" onclick="doUndo()" disabled>↶ 戻る</button>
         <button id="btnRedo" onclick="doRedo()" disabled>↷ 進む</button>
       </div>
-      <!-- ファイル -->
-      <div class="btn-group" data-label="ファイル">
-        <button onclick="openFormationModal()">📋 陣形</button>
-        <button onclick="resetBoard()">🔄 リセット</button>
-        <button onclick="saveState()">💾 保存</button>
-        <button onclick="loadState()">📂 読込</button>
-        <button onclick="saveSnapshot()">📸 画像</button>
-        <button onclick="printBoard()">🖨 印刷</button>
-        <button onclick="shareSave()" title="共有URLを発行">🔗 共有</button>
-        <button onclick="shareLoad()" title="共有IDから読込">📥 受信</button>
+      <!-- ファイル（ドロップダウン） -->
+      <div class="dropdown">
+        <button class="dropdown-trigger" onclick="toggleDropdown(this)">📁 ファイル ▼</button>
+        <div class="dropdown-menu">
+          <button onclick="openFormationModal();closeAllDropdowns();">📋 陣形</button>
+          <button onclick="resetBoard();closeAllDropdowns();">🔄 リセット</button>
+          <button onclick="saveState();closeAllDropdowns();">💾 保存</button>
+          <button onclick="loadState();closeAllDropdowns();">📂 読込</button>
+          <button onclick="saveSnapshot();closeAllDropdowns();">📸 画像</button>
+          <button onclick="printBoard();closeAllDropdowns();">🖨 印刷</button>
+          <button onclick="shareSave();closeAllDropdowns();">🔗 共有</button>
+          <button onclick="shareLoad();closeAllDropdowns();">📥 受信</button>
+        </div>
       </div>
-      <!-- ツール -->
+      <!-- ツール（常時表示） -->
       <div class="btn-group" data-label="ツール">
         <button id="btnPassCountMode" onclick="togglePassCountMode()">🔢 カウント</button>
         <button id="btnTheme" onclick="toggleTheme()">🌓 テーマ</button>
@@ -297,6 +362,7 @@ button:disabled {
       <button id="bS1" onclick="stopRec()" disabled>⏹停止</button>
       <button id="bC1" class="btn-confirm" onclick="confirmTurn()" disabled>✅確定</button>
       <button id="bP1" class="btn-play-p" onclick="playPat(1)" disabled>▶再生</button>
+      <button id="bT1" onclick="playStep(1)" disabled>⏭ ステップ</button>
       <button id="bD1" onclick="clearPat(1)" disabled>🗑</button>
       <span id="st1" class="pstatus"></span>
     </div>
@@ -306,6 +372,7 @@ button:disabled {
       <button id="bS2" onclick="stopRec()" disabled>⏹停止</button>
       <button id="bC2" class="btn-confirm" onclick="confirmTurn()" disabled>✅確定</button>
       <button id="bP2" class="btn-play-p" onclick="playPat(2)" disabled>▶再生</button>
+      <button id="bT2" onclick="playStep(2)" disabled>⏭ ステップ</button>
       <button id="bD2" onclick="clearPat(2)" disabled>🗑</button>
       <span id="st2" class="pstatus"></span>
     </div>
@@ -468,6 +535,26 @@ const ballImg = new Image(); ballImg.src = BALL_URL; ballImg.onload = () => draw
   if (isStandalone) document.documentElement.classList.add('pwa-standalone');
 })();
 
+// ── ドロップダウンメニュー制御 ──
+function toggleDropdown(triggerBtn){
+  const menu = triggerBtn.nextElementSibling;
+  if (!menu || !menu.classList.contains('dropdown-menu')) return;
+  const wasOpen = menu.classList.contains('show');
+  closeAllDropdowns();
+  if (!wasOpen) menu.classList.add('show');
+}
+function closeAllDropdowns(){
+  document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+}
+// 外側クリックで閉じる
+document.addEventListener('click', function(e){
+  if (!e.target.closest('.dropdown')) closeAllDropdowns();
+});
+// Escキーで閉じる
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') closeAllDropdowns();
+});
+
 // ═══════════════════════════════════════════════
 //  状態変数
 // ═══════════════════════════════════════════════
@@ -526,7 +613,7 @@ function updateUndoButtons() {
 let mode='move', lines=[], curPath=null, dragging=null, lastPos=null;
 let rotCenter=null, startAng=0, isAnim=false;
 let passCount=0, passVisible=false, coupledId=null;
-let passCountMode=false, showTrail=true;
+let passCountMode=false, showTrail=false;
 let isRec=false, recSlot=0;
 let recTurns=[], recTurnStart=null, recTurnBallPath=null, recTurnNum=0;
 let recTurnPlayerPaths={}; // 記録中の選手ドラッグ軌道 { id: [{x,y},...] }
@@ -739,6 +826,16 @@ function setMode(m){
   const map={move:'btnMove',groupMove:'btnGroupMove',rotate:'btnRotate',
              toggleGroup:'btnToggleGroup',draw:'btnDraw',erase:'btnErase',editName:'btnEditName'};
   if(map[m]){const el=document.getElementById(map[m]); if(el) el.classList.add('active');}
+  // ドロップダウントリガーに現在モードを反映（操作・描画グループ）
+  const labels = {
+    move:'🖐 1人', groupMove:'👥 グループ', rotate:'🔄 回転',
+    toggleGroup:'🔗 切替', editName:'🏷 名前',
+    draw:'✏️ ペン', erase:'🧽 消しゴム'
+  };
+  const opTrigger = document.getElementById('ddOperationLabel');
+  if (opTrigger && ['move','groupMove','rotate','toggleGroup','editName'].includes(m)) {
+    opTrigger.textContent = labels[m] + ' ▼';
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -864,7 +961,7 @@ function loadState(){
 // ═══════════════════════════════════════════════
 // GAS デプロイURLをここに設定してください（/exec で終わるURL）
 // 未設定の場合は共有機能は無効化され、ボタン押下時にメッセージを表示します
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxjgvS4vYlm0C_zb1Jebmqqk2Xdv8W4l1JmMnnjFqvPOJIMPnYT_W6Z9DEmb8_FG9Qs/exec';  // 例: 'https://script.google.com/macros/s/AKfycby.../exec'
+const GAS_API_URL = '';  // 例: 'https://script.google.com/macros/s/AKfycby.../exec'
 
 function _isShareAvailable(){
   return GAS_API_URL && /^https?:/.test(GAS_API_URL);
@@ -1067,6 +1164,19 @@ function refreshPatternUI(){
     document.getElementById('bP'+s).disabled=!has||isRec||isPlaying;
     document.getElementById('bD'+s).disabled=!has||isRec||isPlaying;
     document.getElementById('bR'+s).className=me?'btn-rec-on':'';
+    // ステップ再生ボタン
+    const bT = document.getElementById('bT'+s);
+    if (bT) {
+      bT.disabled = !has || isRec || isPlaying;
+      // 現在ステップ進行中のスロットには進捗を表示
+      if (has && patterns[s].turns) {
+        const total = patterns[s].turns.length;
+        const cur = (stepSlot === s) ? stepIdx : 0;
+        bT.textContent = (cur >= total && cur > 0) ? '⟲ 最初へ' : ('⏭ ステップ ' + (cur+1) + '/' + total);
+      } else {
+        bT.textContent = '⏭ ステップ';
+      }
+    }
   });
 }
 function savePatterns(){ try{ localStorage.setItem('ddb_patterns_v5',JSON.stringify(patterns)); }catch(e){} }
@@ -1086,7 +1196,7 @@ function loadPatterns(){
 }
 
 // ═══════════════════════════════════════════════
-//  パターン再生（ターン同時アニメーション）
+//  パターン再生（ターン同時アニメーション + ステップ再生）
 // ═══════════════════════════════════════════════
 function stopPlay(){
   isPlaying=false; passCount=0; passVisible=false; refreshPatternUI(); draw();
@@ -1094,6 +1204,8 @@ function stopPlay(){
 function playPat(slot){
   const pat=patterns[slot];
   if(!pat||!pat.turns||pat.turns.length===0||isAnim||isPlaying||isRec) return;
+  // 通常再生時はステップ状態をリセット
+  stepSlot = 0; stepIdx = 0;
   isPlaying=true; passCount=0; passVisible=true; coupledId=null;
   lines=lines.filter(l=>l.type!=='trail');
   refreshPatternUI();
@@ -1101,25 +1213,59 @@ function playPat(slot){
 }
 function playTurn(turns, idx){
   if(idx>=turns.length){ stopPlay(); return; }
-  const turn=turns[idx];
-  // null チェック：不正データは安全にスキップ
-  if(!turn||!Array.isArray(turn.startSnap)||!Array.isArray(turn.endSnap)){
-    console.warn('playTurn: invalid turn data at idx='+idx); stopPlay(); return;
+  _animateTurn(turns[idx], () => {
+    setTimeout(()=>playTurn(turns,idx+1), 700);
+  });
+}
+
+// ── ステップ再生：1ターンだけ進める ──
+let stepSlot = 0, stepIdx = 0;
+function playStep(slot){
+  const pat = patterns[slot];
+  if(!pat||!pat.turns||pat.turns.length===0||isAnim||isPlaying||isRec) return;
+  // 別スロット or 終端からの再開 → リセットして最初のターンの startSnap に
+  if (stepSlot !== slot || stepIdx >= pat.turns.length) {
+    stepSlot = slot;
+    stepIdx = 0;
+    lines = lines.filter(l => l.type !== 'trail');
+    try { restoreSnap(pat.turns[0].startSnap); } catch(e){}
+    coupledId = null;
+    passCount = 0; passVisible = false;
+    draw();
   }
-  try{
-    restoreSnap(turn.startSnap);
-  }catch(e){ console.error('restoreSnap error',e); stopPlay(); return; }
+  if (stepIdx >= pat.turns.length) {
+    refreshPatternUI();
+    return;
+  }
+  // 1ターンだけ再生
+  isPlaying = true;
+  refreshPatternUI();
+  _animateTurn(pat.turns[stepIdx], () => {
+    stepIdx++;
+    isPlaying = false;
+    refreshPatternUI();
+  });
+}
+function resetStep(slot){
+  stepSlot = 0; stepIdx = 0;
+  refreshPatternUI();
+}
+
+// ── 共通の1ターンアニメーション（通常再生・ステップ再生から使用） ──
+function _animateTurn(turn, onComplete){
+  if(!turn||!Array.isArray(turn.startSnap)||!Array.isArray(turn.endSnap)){
+    console.warn('_animateTurn: invalid turn data'); if(onComplete) onComplete(); return;
+  }
+  try{ restoreSnap(turn.startSnap); }catch(e){ console.error('restoreSnap error',e); if(onComplete) onComplete(); return; }
 
   passCount=turn.dc;
   if(passCountMode&&turn.dc>0){ passVisible=true; speak(COUNT_LABELS[turn.dc]); updatePassBox(); }
 
-  const path=turn.ballPath, ball=getBall();
+  const path=turn.ballPath;
   if(path&&path.length>1&&showTrail){
     lines.push({type:'trail',path:[...path],color:'rgba(255,255,180,0.65)',w:3,dash:true});
   }
 
-  // ── 補間ペアをループ外で事前計算（ボール含む全員）──
-  // ボールも含めることで「選手+ボールがくっついて移動」を正しくアニメーション
   const interp=[];
   players.forEach(p=>{
     const sp=turn.startSnap.find(s=>s.id===p.id);
@@ -1127,27 +1273,22 @@ function playTurn(turns, idx){
     if(sp&&ep) interp.push({p, sx:sp.x, sy:sp.y, ex:ep.x, ey:ep.y, isBall:p.id==='ball'});
   });
 
-  // ── 1ターンの再生時間を固定（1.5秒） ──
   const TURN_MS=1500;
   let frame=0;
-  const totalFrames=Math.round(TURN_MS/(1000/60)); // ≈90フレーム
+  const totalFrames=Math.round(TURN_MS/(1000/60));
 
   function anim(){
     try{
       const prog=Math.min(frame/(totalFrames-1), 1);
-      // 全員アニメーション：ボールパス→選手記録軌道→線形補間 の優先順
       interp.forEach(({p,sx,sy,ex,ey,isBall})=>{
         const pp=turn.playerPaths&&turn.playerPaths[p.id];
         if(isBall && path && path.length>1){
-          // ボールを直接ドラッグ → ballPath に沿って移動
           const pi=Math.min(Math.floor(prog*(path.length-1)), path.length-1);
           p.x=path[pi].x; p.y=path[pi].y;
         } else if(pp && pp.length>1){
-          // 記録した選手軌道（またはくっついたボール軌道）に沿って移動
           const pi=Math.min(Math.floor(prog*(pp.length-1)), pp.length-1);
           p.x=pp[pi].x; p.y=pp[pi].y;
         } else {
-          // 軌道なし → 線形補間（フォールバック）
           p.x=sx+(ex-sx)*prog; p.y=sy+(ey-sy)*prog;
         }
       });
@@ -1156,10 +1297,11 @@ function playTurn(turns, idx){
       else{
         try{ restoreSnap(turn.endSnap); }catch(e){ console.error(e); }
         draw();
-        setTimeout(()=>playTurn(turns,idx+1), 700);
+        if(onComplete) onComplete();
       }
     }catch(err){
-      console.error('anim error:',err); stopPlay();
+      console.error('anim error:',err);
+      if(onComplete) onComplete();
     }
   }
   requestAnimationFrame(anim);
@@ -2036,6 +2178,7 @@ function fmShowTab(tab){
 
       <h3>💻 Androidスマホ/タブレット</h3>
       <p>Chrome のメニュー（⋮）から「アプリをインストール」または「ホーム画面に追加」を選択してください。</p>
+    </div>
 
     <!-- ルール編（JDBA公式ルール抜粋） -->
     <div id="helpRules" class="help-section">
