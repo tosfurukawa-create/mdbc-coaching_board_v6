@@ -426,7 +426,7 @@ const ctx    = canvas.getContext('2d');
 
 // サイズ依存変数（initCanvas で決まる）
 let CW, CH, iL, iR, iT, iB, innerW, innerH, cx, cy;
-let R, MRGN, STEP;
+let R, PLAYER_R, MRGN, STEP;
 let ALLY_X, ENEMY_X, ALLY3_X, ENEMY3_X, ALLY2_X, ENEMY2_X;
 
 function initCanvas() {
@@ -475,6 +475,8 @@ function initCanvas() {
   // 選手がほぼ縦に接触するレイアウト
   // STEP = 2R + 2（直径＋2px隙間）、列を縦中央揃え
   R    = Math.max(8, Math.min(Math.floor(innerH / 22), 22));
+  // 選手だけ直径を 1px 小さく描画（ボールはRのまま）。最小サイズは保持
+  PLAYER_R = Math.max(7, R - 0.5);
   // STEP は選手中心間距離。円周同士がぎりぎり接する＝中心間=直径(2R)
   STEP = 2 * R;
   MRGN = Math.max(R + 2, (innerH - 9 * STEP) / 2);
@@ -790,7 +792,7 @@ function draw(){
       ctx.beginPath(); ctx.arc(p.x,p.y,R,0,Math.PI*2);
       ctx.lineWidth=2.5; ctx.strokeStyle='white'; ctx.stroke();
     } else {
-      ctx.beginPath(); ctx.arc(p.x,p.y,R,0,Math.PI*2);
+      ctx.beginPath(); ctx.arc(p.x,p.y,PLAYER_R,0,Math.PI*2);
       ctx.fillStyle=p.color; ctx.fill();
       ctx.fillStyle=p.groupId===null?'#fff':p.textColor;
       // ラベル文字数に応じて自動縮小（番号=1〜2文字, 名前=最大4文字）
