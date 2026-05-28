@@ -331,12 +331,12 @@ button:disabled {
         <div class="dropdown-menu">
           <button onclick="openFormationModal();closeAllDropdowns();">📋 陣形</button>
           <button onclick="resetBoard();closeAllDropdowns();">🔄 リセット</button>
-          <button onclick="saveState();closeAllDropdowns();">💾 保存</button>
-          <button onclick="loadState();closeAllDropdowns();">📂 読込</button>
-          <button onclick="saveSnapshot();closeAllDropdowns();">📸 画像</button>
+          <button onclick="saveState();closeAllDropdowns();" title="選手位置・線・攻撃パターンを名前付きで保存">💾 作戦を保存</button>
+          <button onclick="loadState();closeAllDropdowns();" title="保存した作戦の一覧から読み込む">📂 作戦を読込</button>
+          <button onclick="saveSnapshot();closeAllDropdowns();">📸 画像保存</button>
           <button onclick="printBoard();closeAllDropdowns();">🖨 印刷</button>
-          <button onclick="shareSave();closeAllDropdowns();">🔗 共有</button>
-          <button onclick="shareLoad();closeAllDropdowns();">📥 受信</button>
+          <button onclick="shareSave();closeAllDropdowns();" title="作戦をネット経由で共有URL発行">🔗 共有URL発行</button>
+          <button onclick="shareLoad();closeAllDropdowns();" title="共有URLやIDから他の人の作戦を読込">📥 共有受信</button>
         </div>
       </div>
       <!-- ツール（常時表示） -->
@@ -856,7 +856,10 @@ function eraseLineAt(pos){
 }
 function resetBoard(){
   if(isRec) stopRec();
-  lines=[]; players=createPlayers(); coupledId=null; passCount=0; passVisible=false; draw();
+  lines=[]; players=createPlayers(); coupledId=null; passCount=0; passVisible=false;
+  // カスタムデフォルトがあれば適用
+  applyCustomDefault();
+  draw();
   pushHistory();
 }
 function saveSnapshot(){
@@ -942,20 +945,157 @@ function printBoard(){
     setTimeout(function(){ try { w.focus(); w.print(); } catch(e){} }, 300);
   });
 }
-function saveState(){
-  try{ localStorage.setItem('ddb_v4',JSON.stringify({players,lines,patterns,passCount})); alert('💾 保存しました！'); }
-  catch(e){ alert('保存に失敗しました。'); }
+// ═══════════════════════════════════════════════
+//  名前付き複数スロット保存（v6新仕様）
+// ═══════════════════════════════════════════════
+const SAVES_KEY = 'ddb_saves_v6';
+const MAX_SAVES = 20;
+
+function getSaves(){
+  try { return JSON.parse(localStorage.getItem(SAVES_KEY) || '{"items":[]}'); }
+  catch(e) { return {items:[]}; }
 }
+function setSaves(data){
+  try { localStorage.setItem(SAVES_KEY, JSON.stringify(data)); return true; }
+  catch(e) { alert('保存に失敗しました（容量不足の可能性）'); return false; }
+}
+
+// 旧形式（ddb_v4 単一スロット）からのワンタイム移行
+(function migrateOldSave(){
+  try {
+    const old = localStorage.getItem('ddb_v4');
+    if (!old) return;
+    if (localStorage.getItem(SAVES_KEY)) return;  // 既に新形式あり
+    const data = JSON.parse(old);
+    const saves = {items: [{
+      id: 'migrated',
+      name: '旧データ（自動移行）',
+      data: data,
+      createdAt: new Date().toISOString()
+    }]};
+    setSaves(saves);
+    console.log('[migrate] ddb_v4 → ddb_saves_v6');
+  } catch(e) { console.warn('migration error', e); }
+})();
+
+function _captureBoardState(){
+  return {
+    players: players.map(p=>({id:p.id,x:p.x,y:p.y,groupId:p.groupId,label:p.label})),
+    lines: lines.filter(l=>l.type!=='trail'),
+    patterns: patterns,
+    passCount: passCount,
+    playerNames: playerNames,
+    version: 'v6'
+  };
+}
+
+function _restoreBoardState(s){
+  if (!s) return;
+  if (Array.isArray(s.players)) {
+    s.players.forEach(sp=>{
+      const p=players.find(q=>q.id===sp.id);
+      if(p){ p.x=sp.x; p.y=sp.y; p.groupId=sp.groupId; if(sp.label) p.label=sp.label; }
+    });
+  }
+  if (Array.isArray(s.lines)) lines = s.lines;
+  if (s.patterns) patterns = Object.assign({1:null,2:null}, s.patterns);
+  if (s.playerNames) { playerNames = s.playerNames; savePlayerNames(); }
+  passCount = s.passCount || 0;
+  passVisible = passCount > 0;
+  coupledId = null;
+  refreshPatternUI();
+  draw();
+  pushHistory();
+}
+
+// 💾 保存：名前入力 → 一覧に追加（同名は上書き確認）
+function saveState(){
+  const defName = '作戦_' + new Date().toLocaleDateString('ja-JP').replace(/\//g,'-');
+  const name = prompt('この作戦の名前を入力してください\n（選手位置・描画線・攻撃パターン・パスカウントすべてが保存されます）', defName);
+  if (!name) return;
+  const trimmed = name.trim().slice(0, 30);
+  if (!trimmed) return;
+  const saves = getSaves();
+  const existingIdx = saves.items.findIndex(it => it.name === trimmed);
+  const item = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+    name: trimmed,
+    data: _captureBoardState(),
+    createdAt: new Date().toISOString()
+  };
+  if (existingIdx >= 0) {
+    if (!confirm('「' + trimmed + '」は既に存在します。上書きしますか？')) return;
+    item.id = saves.items[existingIdx].id;
+    saves.items[existingIdx] = item;
+  } else {
+    saves.items.unshift(item);
+    if (saves.items.length > MAX_SAVES) {
+      const removed = saves.items.splice(MAX_SAVES);
+      console.log('[saves] 上限超過のため古いデータを削除:', removed.length);
+    }
+  }
+  if (setSaves(saves)) alert('💾 「' + trimmed + '」を保存しました');
+}
+
+// 📂 読込：モーダル一覧から選択
 function loadState(){
-  const raw=localStorage.getItem('ddb_v4');
-  if(!raw){ alert('📂 保存データが見つかりません。'); return; }
-  try{
-    const s=JSON.parse(raw);
-    players=s.players; lines=s.lines||[];
-    if(s.patterns) patterns=Object.assign({1:null,2:null,3:null},s.patterns);
-    passCount=s.passCount||0; passVisible=passCount>0; coupledId=null;
-    refreshPatternUI(); draw(); alert('📂 読み込みました！');
-  }catch(e){ alert('読み込みに失敗しました。'); }
+  openLoadModal();
+}
+
+function openLoadModal(){
+  const saves = getSaves();
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;';
+  let listHtml = '';
+  if (saves.items.length === 0) {
+    listHtml = '<div style="text-align:center;color:#888;padding:30px;font-size:14px;">保存された作戦はまだありません。<br>💾保存 ボタンから作成してください。</div>';
+  } else {
+    listHtml = saves.items.map((item, idx) => {
+      const date = new Date(item.createdAt).toLocaleString('ja-JP', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
+      const escName = (item.name || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+      const hasPatterns = item.data && item.data.patterns && (item.data.patterns[1] || item.data.patterns[2]);
+      const patMark = hasPatterns ? '<span style="font-size:10px;color:#80d0ff;margin-left:6px;">📹パターン記録あり</span>' : '';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;margin-bottom:6px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;color:#fff;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escName}${patMark}</div>
+          <div style="font-size:11px;color:#888;">${date}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0;">
+          <button onclick="loadSavedItem('${item.id}')" style="padding:5px 12px;background:rgba(25,118,210,0.85);border-color:#90caf9;font-size:12px;">📂 読込</button>
+          <button onclick="deleteSavedItem('${item.id}','${escName}')" style="padding:5px 8px;background:rgba(150,30,30,0.7);border-color:#e57373;font-size:12px;">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  m.innerHTML = `<div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.25);border-radius:14px;padding:22px 24px 18px;width:100%;max-width:560px;max-height:85vh;overflow-y:auto;color:#fff;position:relative;">
+    <button onclick="this.closest('div[style*=\\'position:fixed\\']').remove()" style="position:absolute;top:8px;right:12px;background:none;border:none;color:#fff;font-size:20px;cursor:pointer;box-shadow:none;">✕</button>
+    <h2 style="margin:0 0 14px;font-size:17px;color:#ffe082;text-align:center;">📂 保存された作戦一覧</h2>
+    <p style="font-size:11px;color:#aaa;text-align:center;margin-bottom:14px;">最大 ${MAX_SAVES} 件まで保存可能</p>
+    <div id="savedItemsList">${listHtml}</div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', (e)=>{ if(e.target===m) m.remove(); });
+}
+
+function loadSavedItem(id){
+  const saves = getSaves();
+  const item = saves.items.find(it => it.id === id);
+  if (!item) { alert('データが見つかりません'); return; }
+  _restoreBoardState(item.data);
+  // モーダルを閉じる
+  document.querySelectorAll('div[style*="position:fixed"][style*="z-index:300"]').forEach(el=>el.remove());
+  alert('📂 「' + item.name + '」を読み込みました');
+}
+
+function deleteSavedItem(id, name){
+  if (!confirm('「' + name + '」を削除しますか？')) return;
+  const saves = getSaves();
+  saves.items = saves.items.filter(it => it.id !== id);
+  if (setSaves(saves)) {
+    // モーダル再表示
+    document.querySelectorAll('div[style*="position:fixed"][style*="z-index:300"]').forEach(el=>el.remove());
+    openLoadModal();
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -1444,6 +1584,8 @@ window.addEventListener('load', function(){
   initCanvas();
   loadPlayerNames();
   players = createPlayers();
+  // カスタムデフォルトがあれば起動時に適用
+  applyCustomDefault();
   loadPatterns();
   loadTheme();
   draw();
@@ -1496,6 +1638,98 @@ function _resetToDefault(){
     const f = fresh.find(q => q.id === p.id);
     if (f) { p.x = f.x; p.y = f.y; }
   });
+  // カスタムデフォルトがあれば上書き適用
+  applyCustomDefault();
+}
+
+// ═══════════════════════════════════════════════
+//  カスタムデフォルト位置（チーム固有の並び順）
+// ═══════════════════════════════════════════════
+const CUSTOM_DEFAULT_KEY = 'ddb_custom_default_v6';
+
+function hasCustomDefault(){
+  return !!localStorage.getItem(CUSTOM_DEFAULT_KEY);
+}
+
+// 現在の選手位置を「自分のデフォルト」として保存
+// 座標は canvas 全体に対する比率で保存（リサイズに対応）
+function saveAsCustomDefault(){
+  if (!CW || !CH) return false;
+  const positions = players.filter(p=>p.id!=='ball').map(p => ({
+    id: p.id,
+    rx: p.x / CW,
+    ry: p.y / CH,
+    groupId: p.groupId
+  }));
+  try {
+    localStorage.setItem(CUSTOM_DEFAULT_KEY, JSON.stringify(positions));
+    return true;
+  } catch(e) {
+    alert('保存失敗：' + e.message);
+    return false;
+  }
+}
+
+// カスタムデフォルトを現在の選手に適用
+function applyCustomDefault(){
+  const raw = localStorage.getItem(CUSTOM_DEFAULT_KEY);
+  if (!raw) return false;
+  try {
+    const positions = JSON.parse(raw);
+    positions.forEach(sp => {
+      const p = players.find(q => q.id === sp.id);
+      if (!p) return;
+      p.x = sp.rx * CW;
+      p.y = sp.ry * CH;
+      if (sp.groupId !== undefined) p.groupId = sp.groupId;
+    });
+    return true;
+  } catch(e) {
+    console.warn('applyCustomDefault error', e);
+    return false;
+  }
+}
+
+// カスタムデフォルトを削除（工場出荷時に戻す）
+function clearCustomDefault(){
+  if (!confirm('「自分のデフォルト」を削除して、最初の配置（縦一列）に戻しますか？\n\n※ 保存した作戦には影響しません')) return;
+  localStorage.removeItem(CUSTOM_DEFAULT_KEY);
+  // 即座に反映
+  const fresh = createPlayers();
+  players.forEach(p => {
+    if (p.id === 'ball') return;
+    const f = fresh.find(q => q.id === p.id);
+    if (f) { p.x = f.x; p.y = f.y; }
+  });
+  draw();
+  pushHistory();
+  updateCustomDefaultUI();
+  alert('🏭 工場出荷時の配置に戻しました');
+}
+
+// 「現在位置をデフォルトに保存」UIから呼ばれる
+function setCustomDefaultFromCurrent(){
+  if (!confirm('現在の選手配置を「自分のデフォルト」として保存します。\n\n以降、🔄リセット や 📋基本配置（守備時） を押すとこの配置になります。\n\nよろしいですか？')) return;
+  if (saveAsCustomDefault()) {
+    updateCustomDefaultUI();
+    alert('📍 現在の配置を「自分のデフォルト」として保存しました');
+  }
+}
+
+// UI 表示更新（陣形モーダル内のステータス・ボタン）
+function updateCustomDefaultUI(){
+  const statusEl = document.getElementById('customDefaultStatus');
+  const clearBtn = document.getElementById('btnClearCustomDefault');
+  if (!statusEl) return;
+  if (hasCustomDefault()) {
+    statusEl.textContent = '✅ 現在「自分のデフォルト」が設定されています';
+    statusEl.style.color = '#a5d6a7';
+    if (clearBtn) clearBtn.style.display = 'inline-block';
+  } else {
+    statusEl.textContent = '工場出荷時の配置（縦一列・番号順）が使われます';
+    statusEl.style.color = '#aaa';
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
 }
 function _setBallNear(id, dx, dy){
   // ボールを指定選手の位置にスナップ（オフセット指定でずらせる）
@@ -1518,9 +1752,9 @@ function _ballToCenter(){
 const FORMATIONS = {
   'default': {
     name:'🔄 基本配置（守備時）',
-    desc:'デフォルトの初期配置',
+    desc:'デフォルト位置（自分のデフォルト設定があればそれを優先）',
     apply: function(){
-      _resetToDefault();
+      _resetToDefault();  // 内部で applyCustomDefault も呼ばれる
     }
   },
   'attack': {
@@ -1665,6 +1899,7 @@ function applyFormation(key){
 function openFormationModal(){
   const m = document.getElementById('formationModal');
   if (m) m.classList.add('open');
+  updateCustomDefaultUI();
 }
 function closeFormationModal(){
   const m = document.getElementById('formationModal');
@@ -1879,7 +2114,21 @@ window.addEventListener('load', function(){
 
     <!-- 陣形タブ -->
     <div id="fmTabFormation">
-      <p style="font-size:12px;color:#aaa;margin-bottom:12px;text-align:center;">味方・相手それぞれの配置が場面に応じて自動で適用されます。</p>
+      <!-- 自分のデフォルト位置設定 -->
+      <div style="margin-bottom:14px;padding:10px 12px;background:rgba(100,200,255,0.08);border:1px solid rgba(128,208,255,0.30);border-radius:8px;">
+        <div style="font-size:13px;color:#80d0ff;font-weight:bold;margin-bottom:6px;">📍 チームの「自分のデフォルト」</div>
+        <div id="customDefaultStatus" style="font-size:11px;color:#aaa;margin-bottom:8px;">読み込み中...</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="setCustomDefaultFromCurrent()" style="font-size:11px;padding:5px 10px;background:rgba(100,200,255,0.30);border-color:#80d0ff;">📍 現在位置をデフォルトに設定</button>
+          <button id="btnClearCustomDefault" onclick="clearCustomDefault()" style="font-size:11px;padding:5px 10px;background:rgba(150,80,80,0.40);border-color:#e57373;display:none;">🏭 元に戻す</button>
+        </div>
+        <div style="font-size:10px;color:#888;margin-top:6px;line-height:1.5;">
+          選手を並び替えてから「現在位置をデフォルトに設定」を押すと、リセット時にこの配置が使われます。<br>
+          年度・チーム編成ごとに使い分けできます。
+        </div>
+      </div>
+
+      <p style="font-size:12px;color:#aaa;margin-bottom:12px;text-align:center;">▼ 場面別陣形を選択（味方・相手の配置が自動で変わります）</p>
       <div id="formationList" style="display:flex;flex-direction:column;gap:8px;"></div>
       <div style="margin-top:12px;padding:8px 10px;background:rgba(255,200,0,0.10);border-left:3px solid #ffe082;border-radius:4px;font-size:12px;color:#ccc;">
         💡 タップするとすぐに配置が変わります。元に戻すには「↶ 戻る」ボタンを使ってください。
@@ -2164,6 +2413,30 @@ function fmShowTab(tab){
 
       <div class="help-note">💡 記録中に選手を動かした経路が再生時にそのまま再現されます。センターラインをまたがないよう（オーバーライン回避）な経路で動かすと、そのまま再生されます。</div>
       <div class="help-note">⚠️ パターンは「💾 保存」で保存されます。「🔄 リセット」してもパターンは消えません。「🗑」ボタンで個別に削除してください。</div>
+
+      <h3>🎥 画面録画して動画で共有（iPad）</h3>
+      <p>iPad標準の画面録画機能を使うと、アプリの操作・音声を含めて動画として保存・共有できます。</p>
+      <div class="help-step">
+        <div class="step-title">事前設定（初回のみ）</div>
+        <ol>
+          <li>iPadの「設定」→「コントロールセンター」</li>
+          <li>「画面収録」の左の <strong>＋ボタン</strong> をタップして追加</li>
+        </ol>
+      </div>
+      <div class="help-step">
+        <div class="step-title">録画手順</div>
+        <ol>
+          <li>画面右上から下にスワイプ → コントロールセンターを開く</li>
+          <li><strong>● 画面収録ボタン</strong> を <strong>長押し</strong>（タップではなく長押し）</li>
+          <li>マイクの絵をタップして <strong>「マイクオン」</strong> に（コーチの声を入れる場合）</li>
+          <li>「録画を開始」をタップ → 3秒カウントダウン後に録画開始</li>
+          <li>作戦ボードで操作・解説</li>
+          <li>停止：画面上部の <strong>赤い時計表示</strong> をタップ →「停止」</li>
+          <li>動画は <strong>「写真」アプリ</strong> に MP4 で自動保存される</li>
+        </ol>
+      </div>
+      <div class="help-note">💡 写真アプリから LINE・メール・AirDropなどで共有できます。標準機能なので軽量・高画質です。</div>
+      <div class="help-note">⚠️ コーチの解説音声を入れる場合は必ず「マイクオン」にすること（タップではなく長押しで設定）</div>
 
       <h3>📱 ホーム画面に追加（iPad/iPhone）</h3>
       <p>このアプリをホーム画面アイコンとして登録すると、Safariのアドレスバーなしで全画面アプリのように起動できます。</p>
