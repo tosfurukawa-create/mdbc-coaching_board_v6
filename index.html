@@ -474,9 +474,12 @@ function initCanvas() {
   // 10人(#1,4-12) を縦に並べる。上下にR分の余白を確保。
   // 選手がほぼ縦に接触するレイアウト
   // STEP = 2R + 2（直径＋2px隙間）、列を縦中央揃え
-  R    = Math.max(8, Math.min(Math.floor(innerH / 22), 22));
-  // 選手だけ R の 90%（10%縮小）で描画。ボールは R のまま。最小サイズは保持
-  PLAYER_R = Math.max(7, R * 0.9);
+  // 選手・ボール半径はコート内野高さに完全比例（上限キャップを撤廃）。
+  // これで全画面/通常/PC/タブレットで「コート:選手:ボール」の比率が常に一定になる。
+  // 比率定数 = 22（この数字を大きくすると選手が小さく、小さくすると大きくなる）。
+  const PLAYER_SIZE_DIVISOR = 22;
+  R = Math.max(4, innerH / PLAYER_SIZE_DIVISOR);  // ボール半径。下限4pxは安全弁（実用上ほぼ発動しない）
+  PLAYER_R = R * 0.9;                              // 選手だけ 10% 小さく（ボールはRのまま）
   // STEP は選手中心間距離。選手円周同士がぎりぎり接する＝中心間=選手直径(2*PLAYER_R)
   STEP = 2 * PLAYER_R;
   MRGN = Math.max(PLAYER_R + 2, (innerH - 9 * STEP) / 2);
@@ -782,7 +785,7 @@ function draw(){
   }
 
   // 選手
-  const fs=Math.max(9,Math.min(R,18));
+  const fs = PLAYER_R * 0.9;   // 選手円に完全比例した文字サイズ（上限キャップなし）
   players.forEach(p=>{
     if(p.id==='ball'){
       ctx.save(); ctx.beginPath(); ctx.arc(p.x,p.y,R,0,Math.PI*2); ctx.clip();
@@ -797,7 +800,7 @@ function draw(){
       ctx.fillStyle=p.groupId===null?'#fff':p.textColor;
       // ラベル文字数に応じて自動縮小（番号=1〜2文字, 名前=最大4文字）
       const len = (p.label||'').length;
-      const lfs = len <= 2 ? fs : Math.max(8, Math.floor(fs * (len === 3 ? 0.75 : 0.6)));
+      const lfs = len <= 2 ? fs : fs * (len === 3 ? 0.75 : 0.6);  // 文字数に応じ比例縮小（floor撤廃で完全比例）
       ctx.font='bold '+lfs+'px sans-serif';
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(p.label,p.x,p.y);
